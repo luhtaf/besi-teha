@@ -32,7 +32,17 @@ ARANGO_USERNAME=your_username
 ARANGO_PASSWORD=your_password
 ```
 
-## Development
+
+
+## Run Application
+
+To start the server in production mode:
+
+```bash
+npm start
+```
+
+## Hot Reload
 
 To start the development server with hot-reloading:
 
@@ -42,14 +52,6 @@ npm run dev
 ```
 
 The server will restart automatically when you make changes to your code.
-
-## Production
-
-To start the server in production mode:
-
-```bash
-npm start
-```
 
 ## Project Structure
 
