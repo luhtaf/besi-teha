@@ -1,0 +1,22 @@
+{
+  "name": "besi-th",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@apollo/server": "^4.12.0",
+    "@graphql-tools/merge": "^9.0.24",
+    "@graphql-tools/mock": "^9.0.22",
+    "arangojs": "^10.1.1",
+    "dotenv": "^16.5.0",
+    "graphql": "^16.11.0",
+    "graphql-tag": "^2.12.6"
+  }
+}
