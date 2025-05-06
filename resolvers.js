@@ -10,21 +10,21 @@ const resolvers = {
         
         // Sektor resolvers
         sektors: (_, __, { dataSources }) => {
-            return dataSources.sektorAPI.findAll();
+            return dataSources.sektor.findAll();
         },
         sektor: (_, { id }, { dataSources }) => {
-            return dataSources.sektorAPI.findById(id);
+            return dataSources.sektor.findById(id);
         }
     },
     Mutation: {
         createSektor: (_, { input }, { dataSources }) => {
-            return dataSources.sektorAPI.create(input);
+            return dataSources.sektor.create(input);
         },
         updateSektor: (_, { id, input }, { dataSources }) => {
-            return dataSources.sektorAPI.update(id, input);
+            return dataSources.sektor.update(id, input);
         },
         deleteSektor: (_, { id }, { dataSources }) => {
-            return dataSources.sektorAPI.delete(id);
+            return dataSources.sektor.delete(id);
         }
     }
 };

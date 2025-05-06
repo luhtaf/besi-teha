@@ -77,7 +77,7 @@ The BaseDataSource pattern provides a consistent interface for interacting with 
 Example usage:
 
 ```javascript
-// datasources/UserDataSource.js
+// datasources/user.js
 const BaseDataSource = require('./BaseDataSource');
 
 class UserDataSource extends BaseDataSource {
@@ -95,11 +95,33 @@ class UserDataSource extends BaseDataSource {
 module.exports = UserDataSource;
 ```
 
+Define datasource in your `datasources.js` file:
+
+```javascript
+// In your datasources.js
+// Import all datasources
+const userDataSource = require('./datasource/user');
+// other datasources...
+
+// Optional: Initialize them all at once
+async function initializeDataSources() {
+  if (userDataSource.initialize) await userDataSource.initialize();
+  // Initialize others...
+}
+
+module.exports = {
+  dataSources: {
+    user: userDataSource,
+  },
+  initializeDataSources
+};
+```
+
 Then use it in your resolvers:
 
 ```javascript
 // In your resolver
-const user = await dataSources.users.findByEmail(email);
+const user = await dataSources.user.findByEmail(email);
 ```
 
 ## License

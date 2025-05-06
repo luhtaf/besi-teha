@@ -12,8 +12,8 @@ async function initializeDataSources() {
 module.exports = {
   dataSources: {
     trackAPI,
-    sektorAPI,
-    // other datasources...
+    sektor:sektorAPI,
+
   },
   initializeDataSources
 };
