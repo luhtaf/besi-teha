@@ -36,7 +36,7 @@ ARANGO_PASSWORD=your_password
 
 ## Run Application
 
-To start the server in production mode:
+To start the server :
 
 ```bash
 npm start
