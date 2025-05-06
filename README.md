@@ -81,8 +81,9 @@ Example usage:
 const BaseDataSource = require('./BaseDataSource');
 
 class UserDataSource extends BaseDataSource {
-  constructor(db) {
-    super(db, 'users'); // 'users' is the collection name
+  constructor() {
+    super();
+    this.collectionName = 'users'; // Defining collection name at class level
   }
   
   // Add custom methods for this specific collection
