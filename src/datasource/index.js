@@ -2,13 +2,20 @@ require('dotenv').config();
 const { Database, aql } = require('arangojs');
 
 class BaseDatasource {
-  constructor() {
+  constructor(options = {}) {
     this.username = process.env.DB_USERNAME;
     this.password = process.env.DB_PASSWORD;
     this.url = process.env.DB_URL || 'http://127.0.0.1:8529';
     this.dbName = process.env.DB_NAME || '_system';
     this.db = null;
     this.collections = {};
+    
+    // Configuration options with defaults
+    this.options = {
+      timestamps: true, // Default: enable automatic timestamps
+      collectionType: 'document', // 'document' or 'edge'
+      ...options
+    };
     
     // Child classes must set this
     this.collectionName = null;
@@ -47,8 +54,6 @@ class BaseDatasource {
 
   /**
    * Get a collection reference, initializing it if needed
-   * @param {string} collectionName - Name of the collection
-   * @returns {Promise<Collection>} ArangoDB collection
    */
   async getCollection(collectionName) {
     if (!this.db) {
@@ -56,12 +61,19 @@ class BaseDatasource {
     }
     
     if (!this.collections[collectionName]) {
+      // Get collection reference first
       const collection = this.db.collection(collectionName);
       const exists = await collection.exists();
       
       if (!exists) {
-        await collection.create();
-        console.log(`Created collection: ${collectionName}`);
+        // When creating a new collection, specify the type
+        if (this.options.collectionType === 'edge') {
+          await collection.create({ type: 3 }); // Type 3 is for edge collections
+          console.log(`Created edge collection: ${collectionName}`);
+        } else {
+          await collection.create(); // Default is document collection
+          console.log(`Created document collection: ${collectionName}`);
+        }
       }
       
       this.collections[collectionName] = collection;
@@ -70,12 +82,83 @@ class BaseDatasource {
     return this.collections[collectionName];
   }
 
-  /* GENERIC CRUD OPERATIONS - using this.collectionName */
+  /* LIFECYCLE HOOKS - Can be overridden by subclasses */
+  
+  /**
+   * Hook called before creating a document
+   * @param {Object} data - The data to be inserted
+   * @returns {Object} - Modified data
+   */
+  async beforeCreate(data) {
+    // Apply timestamps only if enabled
+    if (this.options.timestamps) {
+      const timestamp = new Date().toISOString();
+      return {
+        ...data,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      };
+    }
+    return data;
+  }
+
+  /**
+   * Hook called after a document is created
+   * @param {Object} result - The created document
+   * @returns {Object} - Potentially modified result
+   */
+  async afterCreate(result) {
+    return result;
+  }
+
+  /**
+   * Hook called before updating a document
+   * @param {string} id - Document ID
+   * @param {Object} data - Update data
+   * @returns {Object} - Modified update data
+   */
+  async beforeUpdate(id, data) {
+    // Apply timestamps only if enabled
+    if (this.options.timestamps) {
+      return {
+        ...data,
+        updatedAt: new Date().toISOString()
+      };
+    }
+    return data;
+  }
+
+  /**
+   * Hook called after a document is updated
+   * @param {Object} result - The updated document
+   * @returns {Object} - Potentially modified result
+   */
+  async afterUpdate(result) {
+    return result;
+  }
+
+  /**
+   * Hook called before deleting a document
+   * @param {string} id - Document ID to be deleted
+   * @returns {string} - Potentially modified ID
+   */
+  async beforeDelete(id) {
+    return id;
+  }
+
+  /**
+   * Hook called after a document is deleted
+   * @param {boolean} result - Result of deletion
+   * @returns {boolean} - Potentially modified result
+   */
+  async afterDelete(result) {
+    return result;
+  }
+
+  /* CRUD OPERATIONS */
 
   /**
    * Create a document in the collection
-   * @param {Object} data - Document data to insert
-   * @returns {Promise<Object>} Created document
    */
   async create(data) {
     if (!this.collectionName) {
@@ -87,26 +170,37 @@ class BaseDatasource {
     }
     
     try {
-      // Get the collection object first
+      // Process lifecycle hook
+      const processedData = await this.beforeCreate(data);
+      
       const collection = await this.getCollection(this.collectionName);
       
       const cursor = await this.db.query(aql`
-        INSERT ${data} INTO ${collection}
+        INSERT ${processedData} INTO ${collection}
         RETURN NEW
       `);
       
       const results = await cursor.all();
-      return results[0];
+      
+      // Process after hook
+      await this.afterCreate(results[0]);
+      
+      // Return OperationResult
+      return {
+        success: true,
+        message: `Successfully created document in ${this.collectionName}`
+      };
     } catch (error) {
       console.error(`Error creating document in ${this.collectionName}:`, error);
-      throw error;
+      return {
+        success: false,
+        message: `Failed to create document: ${error.message}`
+      };
     }
   }
 
   /**
    * Get all documents from the collection
-   * @param {Object} filters - Optional filter conditions
-   * @returns {Promise<Array>} Array of documents
    */
   async findAll(filters = {}) {
     if (!this.collectionName) {
@@ -118,27 +212,23 @@ class BaseDatasource {
     }
     
     try {
-      // Get collection object first
       const collection = await this.getCollection(this.collectionName);
       
-      // Build filter conditions if provided
       let query;
       
       if (Object.keys(filters).length === 0) {
-        // No filters - using collection object instead of string
         query = aql`
           FOR doc IN ${collection}
           RETURN doc
         `;
       } else {
-        // With filters
-        const filterStr = Object.entries(filters)
+        const filterConditions = Object.entries(filters)
           .map(([key, value]) => `doc.${key} == ${JSON.stringify(value)}`)
           .join(' AND ');
         
         query = aql`
           FOR doc IN ${collection}
-          FILTER ${filterStr}
+          FILTER ${filterConditions}
           RETURN doc
         `;
       }
@@ -152,9 +242,7 @@ class BaseDatasource {
   }
 
   /**
-   * Find document by ID or key
-   * @param {string} id - Document ID or key
-   * @returns {Promise<Object|null>} Document or null if not found
+   * Find document by ID
    */
   async findById(id) {
     if (!this.collectionName) {
@@ -166,10 +254,8 @@ class BaseDatasource {
     }
     
     try {
-      // Get the collection object first
       const collection = await this.getCollection(this.collectionName);
       
-      // Use the collection object in the query
       const cursor = await this.db.query(aql`
         FOR doc IN ${collection}
         FILTER doc._key == ${id} OR doc.id == ${id}
@@ -187,9 +273,6 @@ class BaseDatasource {
 
   /**
    * Update a document by ID
-   * @param {string} id - Document ID or key
-   * @param {Object} data - Update data
-   * @returns {Promise<Object|null>} Updated document or null
    */
   async update(id, data) {
     if (!this.collectionName) {
@@ -201,28 +284,46 @@ class BaseDatasource {
     }
     
     try {
-      // Get the collection object first
+      // Process lifecycle hook
+      const processedData = await this.beforeUpdate(id, data);
+      
       const collection = await this.getCollection(this.collectionName);
       
       const cursor = await this.db.query(aql`
         FOR doc IN ${collection}
         FILTER doc._key == ${id} OR doc.id == ${id}
-        UPDATE doc WITH ${data} IN ${collection}
+        UPDATE doc WITH ${processedData} IN ${collection}
         RETURN NEW
       `);
       
       const results = await cursor.all();
-      return results.length > 0 ? results[0] : null;
+      
+      if (results.length === 0) {
+        return {
+          success: false,
+          message: `Document with ID ${id} not found in ${this.collectionName}`
+        };
+      }
+      
+      // Process after hook
+      await this.afterUpdate(results[0]);
+      
+      // Return OperationResult
+      return {
+        success: true,
+        message: `Successfully updated document with ID ${id} in ${this.collectionName}`
+      };
     } catch (error) {
       console.error(`Error updating document with ID ${id} in ${this.collectionName}:`, error);
-      throw error;
+      return {
+        success: false,
+        message: `Failed to update document: ${error.message}`
+      };
     }
   }
 
   /**
    * Delete a document by ID
-   * @param {string} id - Document ID or key
-   * @returns {Promise<boolean>} Success indicator
    */
   async delete(id) {
     if (!this.collectionName) {
@@ -234,29 +335,46 @@ class BaseDatasource {
     }
     
     try {
-      // Get the collection object first
+      // Process lifecycle hook
+      const processedId = await this.beforeDelete(id);
+      
       const collection = await this.getCollection(this.collectionName);
       
       const cursor = await this.db.query(aql`
         FOR doc IN ${collection}
-        FILTER doc._key == ${id} OR doc.id == ${id}
+        FILTER doc._key == ${processedId} OR doc.id == ${processedId}
         REMOVE doc IN ${collection}
         RETURN OLD
       `);
       
       const results = await cursor.all();
-      return results.length > 0;
+      
+      if (results.length === 0) {
+        return {
+          success: false,
+          message: `Document with ID ${id} not found in ${this.collectionName}`
+        };
+      }
+      
+      // Process after hook
+      await this.afterDelete(results.length > 0);
+      
+      // Return OperationResult
+      return {
+        success: true,
+        message: `Successfully deleted document with ID ${id} from ${this.collectionName}`
+      };
     } catch (error) {
       console.error(`Error deleting document with ID ${id} from ${this.collectionName}:`, error);
-      throw error;
+      return {
+        success: false,
+        message: `Failed to delete document: ${error.message}`
+      };
     }
   }
 
   /**
    * Execute a custom AQL query
-   * @param {string} query - AQL query to execute
-   * @param {Object} bindVars - Variables to bind to the query
-   * @returns {Promise<Cursor>} Query cursor
    */
   async query(query, bindVars = {}) {
     if (!this.db) {

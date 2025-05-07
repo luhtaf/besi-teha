@@ -3,8 +3,11 @@ const { aql } = require('arangojs');
 
 class SektorAPI extends BaseDatasource {
   constructor() {
-    super();
-    this.collectionName = 'sektor'; // Defining collection name at class level
+    const options = {
+      timestamps: true,
+    };
+    super(options);
+    this.collectionName = 'sektor'; 
   }
 
 

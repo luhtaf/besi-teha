@@ -1,14 +1,5 @@
-const resolvers = {
+const sektorResolvers = {
     Query: {
-        // Track resolvers
-        tracksForHome: (_, __, { dataSources }) => {
-            return dataSources.trackAPI.getTracks();
-        },
-        track: (_, { id }, { dataSources }) => {
-            return dataSources.trackAPI.getTrackById(id);
-        },
-        
-        // Sektor resolvers
         sektors: (_, __, { dataSources }) => {
             return dataSources.sektor.findAll();
         },
@@ -25,8 +16,18 @@ const resolvers = {
         },
         deleteSektor: (_, { id }, { dataSources }) => {
             return dataSources.sektor.delete(id);
+        },
+        assignOrganisasiToSektor: (_, { sektorId, organisasiId }, { dataSources }) => {
+            return dataSources.sektor_organisasi.assignOrganisasiToSektor(sektorId, organisasiId, {type:'has'});
+        },
+      
+        
+    },
+    Sektor: {
+        organisasi: (sektor, _, { dataSources }) => {
+            return dataSources.sektor_organisasi.getOrganisasiBySektorId(sektor._key);
         }
     }
 };
 
-module.exports = { resolvers };
+module.exports = sektorResolvers;

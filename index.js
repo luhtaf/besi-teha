@@ -1,11 +1,10 @@
 const { ApolloServer } = require("@apollo/server");
 const { startStandaloneServer } = require("@apollo/server/standalone");
-const typeDefs = require("./schema");
-const { resolvers } = require("./resolvers");
-const { dataSources, initializeDataSources } = require("./datasources");
+const typeDefs = require("./src/schema");
+const { resolvers } = require('./src/resolvers');
+const { dataSources } = require("./datasources");
 
 async function startApolloServer() {
-    await initializeDataSources();
     const server = new ApolloServer({ 
         typeDefs, 
         resolvers 

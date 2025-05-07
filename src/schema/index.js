@@ -2,11 +2,16 @@ const { mergeTypeDefs } = require('@graphql-tools/merge');
 
 const trackTypeDefs = require('./track');
 const sektorTypeDefs = require('./sektor');
+const organisasiTypeDefs = require('./organisasi');
+const entityTypeDefs = require('./entity');
+const vulnerTypeDefs = require('./vulner');
 
-// Merge all type definitions
 const typeDefs = mergeTypeDefs([
   trackTypeDefs,
-  sektorTypeDefs
+  sektorTypeDefs,
+  organisasiTypeDefs,
+  entityTypeDefs,
+  vulnerTypeDefs
 ]);
 
 module.exports = typeDefs;
