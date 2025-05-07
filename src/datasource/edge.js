@@ -27,6 +27,27 @@ class EdgeDatasource extends BaseDatasource {
     }
     
     try {
+      
+      // Check if source document exists
+      const fromCursor = await this.db.query(aql`
+        RETURN DOCUMENT_EXISTS(${fromId})
+      `);
+      const fromExists = await fromCursor.next();
+      
+      if (!fromExists) {
+        throw new Error(`Source document ${fromId} does not exist`);
+      }
+      
+      // Check if target document exists
+      const toCursor = await this.db.query(aql`
+        RETURN DOCUMENT_EXISTS(${toId})
+      `);
+      const toExists = await toCursor.next();
+      
+      if (!toExists) {
+        throw new Error(`Target document ${toId} does not exist`);
+      }
+      
       // Prepare edge data with from and to
       const edgeData = {
         _from: fromId,
